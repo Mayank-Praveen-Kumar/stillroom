@@ -1,0 +1,30 @@
+name: Import Stillroom history
+on:
+  push:
+    paths:
+      - '.github/workflows/import-history.yml'
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore original commits and tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          git bundle verify stillroom-history.bundle
+          git fetch ./stillroom-history.bundle refs/heads/main:refs/remotes/history/main 'refs/tags/*:refs/tags/*'
+          test "$(git rev-list --count refs/remotes/history/main)" = 17
+          git show HEAD:LICENSE > /tmp/stillroom-LICENSE
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b restored refs/remotes/history/main
+          git merge --allow-unrelated-histories --no-commit -s ours origin/main
+          cp /tmp/stillroom-LICENSE LICENSE
+          git add LICENSE
+          git commit -m "Import all 17 Stillroom versions and retain MIT license"
+          git push --atomic origin HEAD:refs/heads/main --tags
